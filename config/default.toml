@@ -1,0 +1,7 @@
+[node]
+port = 3000
+ip = "127.0.0.1"
+heartbeat_interval = 30
+
+[gateway]
+address = "http://127.0.0.1:5000"
