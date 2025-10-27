@@ -22,13 +22,18 @@ struct HeartbeatPayload<'a> {
     date: i64,
 }
 
-async fn send_register(addr: &String, register_payload: &RegisterPayload<'_>) {
+async fn send_register(addr: &String, id: String, ip: String, port: u16, interval: u64) {
     let client = Client::new();
     let register_url = format!("{}/api/nodes/register", addr);
+    let register_payload = RegisterPayload {
+        id: &id,
+        ip: &ip,
+        port: port,
+    };
 
     match client
         .post(&register_url)
-        .json(register_payload)
+        .json(&register_payload)
         .send()
         .await
     {
@@ -44,6 +49,9 @@ async fn send_register(addr: &String, register_payload: &RegisterPayload<'_>) {
                 "[REGISTER] Fatal error: Unable to contact the Gateway. ({})",
                 e
             );
+
+            sleep(Duration::from_secs(interval)).await;
+            Box::pin(send_register(addr, id, ip, port, interval)).await;
         }
     }
 }
@@ -93,23 +101,26 @@ async fn send_heartbeat(addr: &String, id: String, interval: u64) {
 async fn main() {
     let settings = Settings::new().expect("Failed to load configuration");
     let node_id = Uuid::new_v4().to_string();
-
-    let node_ip = &settings.node.ip;
-    let node_port = settings.node.port;
     let gateway_addr = &settings.gateway.address;
-    let heartbeat_interval = settings.node.heartbeat_interval;
 
     println!("---- Node started ----");
     println!("ID: {}", node_id);
     println!("Gateway: {}", gateway_addr);
     println!("----------------------");
 
-    let register_payload = RegisterPayload {
-        id: &node_id,
-        ip: node_ip,
-        port: node_port,
-    };
-    send_register(gateway_addr, &register_payload).await;
+    send_register(
+        gateway_addr,
+        node_id.to_string(),
+        settings.node.ip,
+        settings.node.port,
+        settings.node.registration_interval,
+    )
+    .await;
 
-    send_heartbeat(gateway_addr, node_id.to_string(), heartbeat_interval).await;
+    send_heartbeat(
+        gateway_addr,
+        node_id.to_string(),
+        settings.node.heartbeat_interval,
+    )
+    .await;
 }

@@ -1,6 +1,7 @@
 [node]
 port = 3000
 ip = "127.0.0.1"
+registration_interval = 10
 heartbeat_interval = 30
 
 [gateway]
