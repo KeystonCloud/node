@@ -1,3 +1,4 @@
+use chrono::Utc;
 use reqwest::Client;
 use serde::Serialize;
 use std::time::Duration;
@@ -18,6 +19,7 @@ struct RegisterPayload<'a> {
 #[derive(Serialize)]
 struct HeartbeatPayload<'a> {
     id: &'a str,
+    date: i64,
 }
 
 async fn send_register(addr: &String, register_payload: &RegisterPayload<'_>) {
@@ -46,7 +48,7 @@ async fn send_register(addr: &String, register_payload: &RegisterPayload<'_>) {
     }
 }
 
-async fn send_heartbeat(addr: &String, heartbeat_payload: &HeartbeatPayload<'_>, interval: u64) {
+async fn send_heartbeat(addr: &String, id: String, interval: u64) {
     let client = Client::new();
     let heartbeat_url = format!("{}/api/nodes/heartbeat", addr);
 
@@ -55,15 +57,20 @@ async fn send_heartbeat(addr: &String, heartbeat_payload: &HeartbeatPayload<'_>,
 
         println!("[HEARTBEAT] Sending the heartbeat...");
 
+        let heartbeat_payload = HeartbeatPayload {
+            id: &id,
+            date: Utc::now().timestamp(),
+        };
+
         match client
             .post(&heartbeat_url)
-            .json(heartbeat_payload)
+            .json(&heartbeat_payload)
             .send()
             .await
         {
             Ok(resp) => {
                 if resp.status().is_success() {
-                    println!("[HEARTBEAT] Received.");
+                    println!("[HEARTBEAT] Received by the gateway.");
                 } else if resp.status() == reqwest::StatusCode::NOT_FOUND {
                     println!(
                         "[HEARTBEAT] Error: The Gateway doesn't know us. Attempting to re-register..."
@@ -104,6 +111,5 @@ async fn main() {
     };
     send_register(gateway_addr, &register_payload).await;
 
-    let heartbeat_payload = HeartbeatPayload { id: &node_id };
-    send_heartbeat(gateway_addr, &heartbeat_payload, heartbeat_interval).await;
+    send_heartbeat(gateway_addr, node_id.to_string(), heartbeat_interval).await;
 }
