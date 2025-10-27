@@ -4,13 +4,22 @@ use serde::Serialize;
 use std::time::Duration;
 use tokio::time::sleep;
 
+use crate::gateway::registration;
+
 #[derive(Serialize)]
 struct HeartbeatPayload<'a> {
     id: &'a str,
     date: i64,
 }
 
-pub async fn send(addr: String, id: String, interval: u64) {
+pub async fn send(
+    addr: String,
+    id: String,
+    ip: String,
+    port: u16,
+    interval: u64,
+    registration_interval: u64,
+) {
     let client = Client::new();
     let heartbeat_url = format!("{}/api/nodes/heartbeat", addr);
 
@@ -37,6 +46,14 @@ pub async fn send(addr: String, id: String, interval: u64) {
                     println!(
                         "[HEARTBEAT] Error: The Gateway doesn't know us. Attempting to re-register..."
                     );
+                    crate::gateway::registration::send(
+                        addr.clone(),
+                        id.clone(),
+                        ip.clone(),
+                        port,
+                        registration_interval,
+                    )
+                    .await;
                 } else {
                     println!("[HEARTBEAT] Sending failed: {}", resp.status());
                 }
