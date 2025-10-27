@@ -1,115 +1,23 @@
-use chrono::Utc;
-use reqwest::Client;
-use serde::Serialize;
-use std::time::Duration;
-use tokio::time::sleep;
 use uuid::Uuid;
 
 pub mod config;
+pub mod gateway;
 
 use config::settings::Settings;
-
-#[derive(Serialize)]
-struct RegisterPayload<'a> {
-    id: &'a str,
-    ip: &'a str,
-    port: u16,
-}
-
-#[derive(Serialize)]
-struct HeartbeatPayload<'a> {
-    id: &'a str,
-    date: i64,
-}
-
-async fn send_register(addr: &String, id: String, ip: String, port: u16, interval: u64) {
-    let client = Client::new();
-    let register_url = format!("{}/api/nodes/register", addr);
-    let register_payload = RegisterPayload {
-        id: &id,
-        ip: &ip,
-        port: port,
-    };
-
-    match client
-        .post(&register_url)
-        .json(&register_payload)
-        .send()
-        .await
-    {
-        Ok(resp) => {
-            if resp.status().is_success() {
-                println!("[REGISTER] Successful registration with the Gateway!");
-            } else {
-                println!("[REGISTER] Registering failed: {}", resp.status());
-            }
-        }
-        Err(e) => {
-            println!(
-                "[REGISTER] Fatal error: Unable to contact the Gateway. ({})",
-                e
-            );
-
-            sleep(Duration::from_secs(interval)).await;
-            Box::pin(send_register(addr, id, ip, port, interval)).await;
-        }
-    }
-}
-
-async fn send_heartbeat(addr: &String, id: String, interval: u64) {
-    let client = Client::new();
-    let heartbeat_url = format!("{}/api/nodes/heartbeat", addr);
-
-    loop {
-        sleep(Duration::from_secs(interval)).await;
-
-        println!("[HEARTBEAT] Sending the heartbeat...");
-
-        let heartbeat_payload = HeartbeatPayload {
-            id: &id,
-            date: Utc::now().timestamp(),
-        };
-
-        match client
-            .post(&heartbeat_url)
-            .json(&heartbeat_payload)
-            .send()
-            .await
-        {
-            Ok(resp) => {
-                if resp.status().is_success() {
-                    println!("[HEARTBEAT] Received by the gateway.");
-                } else if resp.status() == reqwest::StatusCode::NOT_FOUND {
-                    println!(
-                        "[HEARTBEAT] Error: The Gateway doesn't know us. Attempting to re-register..."
-                    );
-                } else {
-                    println!("[HEARTBEAT] Sending failed: {}", resp.status());
-                }
-            }
-            Err(e) => {
-                println!(
-                    "[HEARTBEAT] Fatal error: Unable to contact the Gateway. ({})",
-                    e
-                );
-            }
-        }
-    }
-}
 
 #[tokio::main]
 async fn main() {
     let settings = Settings::new().expect("Failed to load configuration");
     let node_id = Uuid::new_v4().to_string();
-    let gateway_addr = &settings.gateway.address;
+    let gateway_addr = settings.gateway.address;
 
     println!("---- Node started ----");
     println!("ID: {}", node_id);
     println!("Gateway: {}", gateway_addr);
     println!("----------------------");
 
-    send_register(
-        gateway_addr,
+    gateway::registration::send(
+        gateway_addr.clone(),
         node_id.to_string(),
         settings.node.ip,
         settings.node.port,
@@ -117,10 +25,17 @@ async fn main() {
     )
     .await;
 
-    send_heartbeat(
-        gateway_addr,
-        node_id.to_string(),
-        settings.node.heartbeat_interval,
-    )
-    .await;
+    let gateway_addr_cloned = gateway_addr.clone();
+    tokio::spawn(async move {
+        gateway::heartbeat::send(
+            gateway_addr_cloned,
+            node_id.to_string(),
+            settings.node.heartbeat_interval,
+        )
+        .await;
+    });
+
+    loop {
+        tokio::time::sleep(std::time::Duration::from_secs(60)).await;
+    }
 }
