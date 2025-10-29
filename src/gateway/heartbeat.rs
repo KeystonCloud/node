@@ -4,8 +4,6 @@ use serde::Serialize;
 use std::time::Duration;
 use tokio::time::sleep;
 
-use crate::gateway::registration;
-
 #[derive(Serialize)]
 struct HeartbeatPayload<'a> {
     id: &'a str,
