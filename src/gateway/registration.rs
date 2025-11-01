@@ -12,7 +12,7 @@ struct RegisterPayload<'a> {
 
 pub async fn send(addr: String, id: String, ip: String, port: u16, interval: u64) {
     let client = Client::new();
-    let register_url = format!("{}/api/nodes/register", addr);
+    let register_url = format!("{}/api/node/register", addr);
     let register_payload = RegisterPayload {
         id: &id,
         ip: &ip,

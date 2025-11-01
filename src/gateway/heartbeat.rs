@@ -19,7 +19,7 @@ pub async fn send(
     registration_interval: u64,
 ) {
     let client = Client::new();
-    let heartbeat_url = format!("{}/api/nodes/heartbeat", addr);
+    let heartbeat_url = format!("{}/api/node/heartbeat", addr);
 
     loop {
         sleep(Duration::from_secs(interval)).await;
