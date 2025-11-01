@@ -1,4 +1,3 @@
-use chrono::Utc;
 use reqwest::Client;
 use serde::Serialize;
 use std::time::Duration;
@@ -7,7 +6,6 @@ use tokio::time::sleep;
 #[derive(Serialize)]
 struct HeartbeatPayload<'a> {
     id: &'a str,
-    date: i64,
 }
 
 pub async fn send(
@@ -26,10 +24,7 @@ pub async fn send(
 
         println!("[HEARTBEAT] Sending the heartbeat...");
 
-        let heartbeat_payload = HeartbeatPayload {
-            id: &id,
-            date: Utc::now().timestamp(),
-        };
+        let heartbeat_payload = HeartbeatPayload { id: &id };
 
         match client
             .post(&heartbeat_url)
