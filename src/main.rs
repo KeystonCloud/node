@@ -11,8 +11,40 @@ use config::settings::Settings;
 
 #[tokio::main]
 async fn main() {
+    println!(
+        "KC_GATEWAY__PEER_HOST = {:?}",
+        std::env::var("KC_GATEWAY__PEER_HOST")
+    );
+    println!(
+        "KC_GATEWAY__PEER_PORT = {:?}",
+        std::env::var("KC_GATEWAY__PEER_PORT")
+    );
+    println!(
+        "KC_GATEWAY__PEER_ID = {:?}",
+        std::env::var("KC_GATEWAY__PEER_ID")
+    );
+
     let settings = Settings::new().expect("Failed to load configuration");
     let node_id = Uuid::new_v4().to_string();
+
+    let api_app_router = api::app::create_router();
+    let app = Router::new()
+        .route("/", get(root_handler))
+        .nest("/api", api_app_router);
+
+    let addr: SocketAddr = format!("{}:{}", settings.node.host, settings.node.port)
+        .parse()
+        .expect("Invalid address format");
+    let listener = tokio::net::TcpListener::bind(addr).await.unwrap();
+
+    println!("---- Node started ----");
+    println!("ID: {}", node_id);
+    println!("API: {}", addr);
+    println!("Gateway API: {}", settings.gateway.address);
+    println!("Gateway PEER ID: {:?}", settings.gateway.peer_id);
+    println!("Gateway PEER HOST: {:?}", settings.gateway.peer_host);
+    println!("Gateway PEER PORT: {:?}", settings.gateway.peer_port);
+    println!("----------------------");
 
     let node_id_clone = node_id.clone();
     let gateway_addr = settings.gateway.address.clone();
@@ -39,22 +71,6 @@ async fn main() {
         )
         .await;
     });
-
-    let api_app_router = api::app::create_router();
-    let app = Router::new()
-        .route("/", get(root_handler))
-        .nest("/api", api_app_router);
-
-    let addr: SocketAddr = format!("{}:{}", settings.node.host, settings.node.port)
-        .parse()
-        .expect("Invalid address format");
-    let listener = tokio::net::TcpListener::bind(addr).await.unwrap();
-
-    println!("---- Node started ----");
-    println!("ID: {}", node_id);
-    println!("API: {}", addr);
-    println!("Gateway: {}", settings.gateway.address);
-    println!("----------------------");
 
     axum::serve(listener, app).await.unwrap();
 }
