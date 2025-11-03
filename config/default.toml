@@ -3,6 +3,7 @@ port = 5000
 host = "0.0.0.0"
 registration_interval = 10
 heartbeat_interval = 30
+ipfs_host = "http://localhost:5001"
 
 [gateway]
 address = "http://satellite:8000"

@@ -2,7 +2,7 @@ use serde::Deserialize;
 
 use crate::config::{gateway::GatewayConfig, node::NodeConfig};
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, Clone)]
 pub struct Settings {
     pub node: NodeConfig,
     pub gateway: GatewayConfig,

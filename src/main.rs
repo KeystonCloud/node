@@ -11,23 +11,10 @@ use config::settings::Settings;
 
 #[tokio::main]
 async fn main() {
-    println!(
-        "KC_GATEWAY__PEER_HOST = {:?}",
-        std::env::var("KC_GATEWAY__PEER_HOST")
-    );
-    println!(
-        "KC_GATEWAY__PEER_PORT = {:?}",
-        std::env::var("KC_GATEWAY__PEER_PORT")
-    );
-    println!(
-        "KC_GATEWAY__PEER_ID = {:?}",
-        std::env::var("KC_GATEWAY__PEER_ID")
-    );
-
     let settings = Settings::new().expect("Failed to load configuration");
     let node_id = Uuid::new_v4().to_string();
 
-    let api_app_router = api::app::create_router();
+    let api_app_router = api::app::create_router(settings.clone());
     let app = Router::new()
         .route("/", get(root_handler))
         .nest("/api", api_app_router);

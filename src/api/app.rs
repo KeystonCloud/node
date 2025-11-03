@@ -1,11 +1,13 @@
-use axum::{Json, Router, http::StatusCode, response::IntoResponse, routing::post};
+use axum::{Json, Router, extract::State, http::StatusCode, response::IntoResponse, routing::post};
 use reqwest::Client;
 use serde::Deserialize;
 
-use crate::core::json::SimpleJsonResponse;
+use crate::{config::settings::Settings, core::json::SimpleJsonResponse};
 
-pub fn create_router() -> Router {
-    Router::new().route("/deploy", post(deploy_app))
+pub fn create_router(settings: Settings) -> Router {
+    Router::new()
+        .route("/deploy", post(deploy_app))
+        .with_state(settings)
 }
 
 #[derive(Deserialize, Debug)]
@@ -14,11 +16,17 @@ pub struct AppDeployPayload {
     cid: String,
 }
 
-pub async fn deploy_app(Json(payload): Json<AppDeployPayload>) -> impl IntoResponse {
+pub async fn deploy_app(
+    State(settings): State<Settings>,
+    Json(payload): Json<AppDeployPayload>,
+) -> impl IntoResponse {
     println!("[APP] New app deployment received.");
 
     let client = Client::new();
-    let ipfs_url = format!("http://localhost:5001/api/v0/pin/add?arg={}", payload.cid);
+    let ipfs_url = format!(
+        "{}/api/v0/pin/add?arg={}",
+        settings.node.ipfs_host, payload.cid
+    );
 
     match client.post(&ipfs_url).send().await {
         Ok(resp) => {
