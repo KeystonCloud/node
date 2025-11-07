@@ -22,6 +22,7 @@ If you want to use docker compose for development, you can add into ``services``
       dockerfile: Dockerfile.dev
     restart: unless-stopped
     environment:
+      KC__SATELLITE__PEER_HOST: satellite # Satellit peer host for start.sh
       KC__SATELLITE__PEER_ID: <your_satellite_peer_id>  # Satellite peer ID
       KC__NODE__OWNER_ID: <your_node_owner_id>  # Team ID to own this node
     volumes:
