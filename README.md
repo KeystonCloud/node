@@ -27,10 +27,19 @@ If you want to use docker compose for development, you can add into ``services``
       KC__NODE__OWNER_ID: <your_node_owner_id>  # Team ID to own this node
     volumes:
       - ./node:/app
+      - ipfs-node-data:/root/.ipfs
+      - node-data:/app/data
     ports:
       - 5000:5000
     deploy:
       replicas: 1
 ```
+
+Add volumes storage for IPFS and node datas in ``volumes`` part of your docker compose file:
+```yaml
+  ipfs-node-data:
+  node-data:
+```
+
 This stack will create the node service. The node service will be built using the `Dockerfile.dev` file located in the `node` folder and use starting script `start.sh`.
 This starting script will run the application by using `cargo watch` to automatically reload the application when code changes are detected.
