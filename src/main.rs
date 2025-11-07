@@ -1,5 +1,6 @@
 use axum::{Router, routing::get};
-use std::net::SocketAddr;
+use std::{net::SocketAddr, path::Path};
+use tokio::fs;
 use uuid::Uuid;
 
 pub mod api;
@@ -8,6 +9,8 @@ pub mod core;
 pub mod gateway;
 
 use config::settings::Settings;
+
+use crate::config::node::NodeIdentity;
 
 #[tokio::main]
 async fn main() {
@@ -27,36 +30,21 @@ async fn main() {
     println!("---- Node started ----");
     println!("ID: {}", node_id);
     println!("API: {}", addr);
-    println!("Gateway API: {}", settings.gateway.address);
-    println!("Gateway PEER ID: {:?}", settings.gateway.peer_id);
-    println!("Gateway PEER HOST: {:?}", settings.gateway.peer_host);
-    println!("Gateway PEER PORT: {:?}", settings.gateway.peer_port);
+    println!("Satellite API: {}", settings.satellite.api_host);
+    println!("Satellite PEER ID: {:?}", settings.satellite.peer_id);
+    println!("Satellite PEER HOST: {:?}", settings.satellite.peer_host);
+    println!("Satellite PEER PORT: {:?}", settings.satellite.peer_port);
     println!("----------------------");
 
-    let node_id_clone = node_id.clone();
-    let gateway_addr = settings.gateway.address.clone();
-    let node_host = settings.node.host.clone();
-    let node_port = settings.node.port;
-    let registration_interval = settings.node.registration_interval;
     tokio::spawn(async move {
-        gateway::registration::send(
-            gateway_addr.clone(),
-            node_id_clone.to_string(),
-            node_host.clone(),
-            node_port,
-            registration_interval,
-        )
-        .await;
-
-        gateway::heartbeat::send(
-            gateway_addr.clone(),
-            node_id_clone.to_string(),
-            node_host.clone(),
-            node_port,
-            settings.node.heartbeat_interval,
-            registration_interval,
-        )
-        .await;
+        match get_or_register_identity(&settings).await {
+            Ok(identity) => {
+                gateway::heartbeat::send(&settings, identity).await;
+            }
+            Err(e) => {
+                println!("[INIT] Node registration failed: {}", e);
+            }
+        }
     });
 
     axum::serve(listener, app).await.unwrap();
@@ -64,4 +52,25 @@ async fn main() {
 
 async fn root_handler() -> &'static str {
     "Node online."
+}
+
+async fn load_identity_from_file(settings: &Settings) -> Option<NodeIdentity> {
+    let identity_path = format!("{}/identity.json", settings.node.data_path);
+
+    if !Path::new(&identity_path).exists() {
+        return None;
+    }
+    match fs::read_to_string(&identity_path).await {
+        Ok(content) => serde_json::from_str::<NodeIdentity>(&content).ok(),
+        Err(_) => None,
+    }
+}
+
+async fn get_or_register_identity(settings: &Settings) -> Result<NodeIdentity, String> {
+    if let Some(node) = load_identity_from_file(settings).await {
+        println!("[INIT] Local identify found. ID: {}", node.id);
+        Ok(node)
+    } else {
+        gateway::registration::send(settings).await
+    }
 }

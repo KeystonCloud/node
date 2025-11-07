@@ -1,11 +1,11 @@
 use serde::Deserialize;
 
-use crate::config::{gateway::GatewayConfig, node::NodeConfig};
+use crate::config::{node::NodeConfig, satellite::SatelliteConfig};
 
 #[derive(Debug, Deserialize, Clone)]
 pub struct Settings {
     pub node: NodeConfig,
-    pub gateway: GatewayConfig,
+    pub satellite: SatelliteConfig,
 }
 
 impl Settings {

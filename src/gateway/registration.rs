@@ -1,22 +1,30 @@
 use reqwest::Client;
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 use std::time::Duration;
-use tokio::time::sleep;
+use tokio::{fs, time::sleep};
+
+use crate::config::{node::NodeIdentity, settings::Settings};
 
 #[derive(Serialize)]
 struct RegisterPayload<'a> {
-    id: &'a str,
-    ip: &'a str,
+    owner_id: &'a str,
+    name: &'a str,
     port: u16,
 }
 
-pub async fn send(addr: String, id: String, ip: String, port: u16, interval: u64) {
+#[derive(Deserialize)]
+struct RegisterResponse {
+    data: NodeIdentity,
+    error: Option<String>,
+}
+
+pub async fn send(settings: &Settings) -> Result<NodeIdentity, String> {
     let client = Client::new();
-    let register_url = format!("{}/api/node/register", addr);
+    let register_url = format!("{}/api/node/register", settings.satellite.api_host);
     let register_payload = RegisterPayload {
-        id: &id,
-        ip: &ip,
-        port: port,
+        owner_id: &settings.node.owner_id,
+        name: &settings.node.name,
+        port: settings.node.port,
     };
 
     match client
@@ -26,10 +34,54 @@ pub async fn send(addr: String, id: String, ip: String, port: u16, interval: u64
         .await
     {
         Ok(resp) => {
-            if resp.status().is_success() {
-                println!("[REGISTER] Successful registration with the Gateway!");
-            } else {
+            if !resp.status().is_success() {
                 println!("[REGISTER] Registering failed: {}", resp.status());
+                return Err(format!("Registering failed: {}", resp.status()));
+            }
+
+            match resp.json::<RegisterResponse>().await {
+                Ok(resp_identity) => {
+                    if let Some(error) = resp_identity.error {
+                        println!("[REGISTER] Registering error: {}", error);
+                        return Err(format!("Registering error: {}", error));
+                    }
+
+                    println!("[REGISTER] Successfully registered with Satellite.");
+
+                    match serde_json::to_string_pretty(&resp_identity.data) {
+                        Err(e) => {
+                            println!(
+                                "[REGISTER] Fatal error: Unable to serialize identity data. ({})",
+                                e
+                            );
+                            return Err(format!("Unable to serialize identity data: {}", e));
+                        }
+                        Ok(identity) => {
+                            let data_path = settings.node.data_path.clone();
+                            let identity_path = format!("{}/identity.json", data_path);
+
+                            if let Err(_) = fs::create_dir_all(data_path).await {
+                                return Err("Unable to create data directory.".to_string());
+                            }
+                            if let Err(_) = fs::write(&identity_path, identity).await {
+                                return Err("Unable to save identity to file.".to_string());
+                            }
+
+                            println!(
+                                "[REGISTER] Successfully identity saved in {}",
+                                identity_path
+                            );
+                            Ok(resp_identity.data)
+                        }
+                    }
+                }
+                Err(e) => {
+                    println!(
+                        "[REGISTER] Fatal error: Unable to parse Satellite response. ({})",
+                        e
+                    );
+                    Err(format!("Unable to parse Gateway response: {}", e))
+                }
             }
         }
         Err(e) => {
@@ -38,8 +90,8 @@ pub async fn send(addr: String, id: String, ip: String, port: u16, interval: u64
                 e
             );
 
-            sleep(Duration::from_secs(interval)).await;
-            Box::pin(send(addr, id, ip, port, interval)).await;
+            sleep(Duration::from_secs(settings.node.registration_interval)).await;
+            Box::pin(send(settings)).await
         }
     }
 }

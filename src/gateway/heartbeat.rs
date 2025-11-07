@@ -3,28 +3,24 @@ use serde::Serialize;
 use std::time::Duration;
 use tokio::time::sleep;
 
+use crate::config::{node::NodeIdentity, settings::Settings};
+
 #[derive(Serialize)]
 struct HeartbeatPayload<'a> {
     id: &'a str,
 }
 
-pub async fn send(
-    addr: String,
-    id: String,
-    ip: String,
-    port: u16,
-    interval: u64,
-    registration_interval: u64,
-) {
+pub async fn send(settings: &Settings, node_identity: NodeIdentity) {
     let client = Client::new();
-    let heartbeat_url = format!("{}/api/node/heartbeat", addr);
+    let heartbeat_url = format!("{}/api/node/heartbeat", settings.satellite.api_host);
 
     loop {
-        sleep(Duration::from_secs(interval)).await;
-
+        sleep(Duration::from_secs(settings.node.heartbeat_interval)).await;
         println!("[HEARTBEAT] Sending the heartbeat...");
 
-        let heartbeat_payload = HeartbeatPayload { id: &id };
+        let heartbeat_payload = HeartbeatPayload {
+            id: &node_identity.id,
+        };
 
         match client
             .post(&heartbeat_url)
@@ -39,14 +35,7 @@ pub async fn send(
                     println!(
                         "[HEARTBEAT] Error: The Gateway doesn't know us. Attempting to re-register..."
                     );
-                    crate::gateway::registration::send(
-                        addr.clone(),
-                        id.clone(),
-                        ip.clone(),
-                        port,
-                        registration_interval,
-                    )
-                    .await;
+                    let _ = crate::gateway::registration::send(settings).await;
                 } else {
                     println!("[HEARTBEAT] Sending failed: {}", resp.status());
                 }

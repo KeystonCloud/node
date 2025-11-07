@@ -22,8 +22,8 @@ If you want to use docker compose for development, you can add into ``services``
       dockerfile: Dockerfile.dev
     restart: unless-stopped
     environment:
-      KC__GATEWAY__PEER_HOST: satellite
-      KC__GATEWAY__PEER_ID: <your_satellite_peer_id>
+      KC__SATELLITE__PEER_ID: <your_satellite_peer_id>  # Satellite peer ID
+      KC__NODE__OWNER_ID: <your_node_owner_id>  # Team ID to own this node
     volumes:
       - ./node:/app
     ports:
