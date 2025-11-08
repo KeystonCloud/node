@@ -14,40 +14,45 @@ use crate::config::node::NodeIdentity;
 
 #[tokio::main]
 async fn main() {
-    let settings = Settings::new().expect("Failed to load configuration");
+    let settings = Settings::new().expect("[SETTINGS] Failed to load configuration.");
     let node_id = Uuid::new_v4().to_string();
 
     let api_app_router = api::app::create_router(settings.clone());
     let app = Router::new()
         .route("/", get(root_handler))
         .nest("/api", api_app_router);
-
     let addr: SocketAddr = format!("{}:{}", settings.node.host, settings.node.port)
         .parse()
-        .expect("Invalid address format");
-    let listener = tokio::net::TcpListener::bind(addr).await.unwrap();
+        .expect("[WEBSERVER] Invalid address format.");
 
-    println!("---- Node started ----");
+    println!("---------------------------- Node config ----------------------------");
     println!("ID: {}", node_id);
     println!("API: {}", addr);
     println!("Satellite API: {}", settings.satellite.api_host);
     println!("Satellite PEER ID: {:?}", settings.satellite.peer_id);
     println!("Satellite PEER HOST: {:?}", settings.satellite.peer_host);
     println!("Satellite PEER PORT: {:?}", settings.satellite.peer_port);
-    println!("----------------------");
+    println!("---------------------------------------------------------------------");
 
-    tokio::spawn(async move {
-        match get_or_register_identity(&settings).await {
-            Ok(identity) => {
+    match get_or_register_identity(&settings).await {
+        Ok(identity) => {
+            tokio::spawn(async move {
                 gateway::heartbeat::send(&settings, identity).await;
-            }
-            Err(e) => {
-                println!("[INIT] Node registration failed: {}", e);
-            }
+            });
         }
-    });
+        Err(e) => {
+            println!("[INIT] Node registration failed: {}", e);
+        }
+    }
 
-    axum::serve(listener, app).await.unwrap();
+    let listener = tokio::net::TcpListener::bind(addr)
+        .await
+        .expect("[WEBSERVER] TCP listener failed to bind.");
+
+    println!("[WEBSERVER] Server starting...");
+    axum::serve(listener, app)
+        .await
+        .expect("[WEBSERVER] Server start failed.");
 }
 
 async fn root_handler() -> &'static str {

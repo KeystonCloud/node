@@ -16,7 +16,10 @@ pub async fn send(settings: &Settings, node_identity: NodeIdentity) {
 
     loop {
         sleep(Duration::from_secs(settings.node.heartbeat_interval)).await;
-        println!("[HEARTBEAT] Sending the heartbeat...");
+        println!(
+            "[HEARTBEAT] Sending the heartbeat with id={}",
+            node_identity.id
+        );
 
         let heartbeat_payload = HeartbeatPayload {
             id: &node_identity.id,
@@ -42,7 +45,7 @@ pub async fn send(settings: &Settings, node_identity: NodeIdentity) {
             }
             Err(e) => {
                 println!(
-                    "[HEARTBEAT] Fatal error: Unable to contact the Gateway. ({})",
+                    "[HEARTBEAT] Fatal error: Unable to contact the Gateway. {}",
                     e
                 );
             }

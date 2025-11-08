@@ -27,6 +27,7 @@ pub async fn send(settings: &Settings) -> Result<NodeIdentity, String> {
         port: settings.node.port,
     };
 
+    println!("[REGISTER] Registering process started...");
     match client
         .post(&register_url)
         .json(&register_payload)
@@ -47,7 +48,6 @@ pub async fn send(settings: &Settings) -> Result<NodeIdentity, String> {
                     }
 
                     println!("[REGISTER] Successfully registered with Satellite.");
-
                     match serde_json::to_string_pretty(&resp_identity.data) {
                         Err(e) => {
                             println!(
