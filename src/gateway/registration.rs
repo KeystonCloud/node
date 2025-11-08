@@ -20,7 +20,7 @@ struct RegisterResponse {
 
 pub async fn send(settings: &Settings) -> Result<NodeIdentity, String> {
     let client = Client::new();
-    let register_url = format!("{}/api/node/register", settings.satellite.api_host);
+    let register_url = format!("{}/api/node", settings.satellite.api_host);
     let register_payload = RegisterPayload {
         owner_id: &settings.node.owner_id,
         name: &settings.node.name,
