@@ -29,8 +29,6 @@ If you want to use docker compose for development, you can add into ``services``
       - ./node:/app
       - ipfs-node-data:/root/.ipfs
       - node-data:/app/data
-    ports:
-      - 5000:5000
     deploy:
       replicas: 1
 ```

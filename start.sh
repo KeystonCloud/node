@@ -16,10 +16,11 @@ fi
 if [ ! -f $IPFS_DIR/config ]; then
   echo "[Node] Initialisation d'IPFS..."
   ipfs init
-
-  ipfs config Addresses.API '"/ip4/0.0.0.0/tcp/5001"' --json
-  ipfs config Addresses.Swarm '["/ip4/0.0.0.0/tcp/4001", "/ip4/0.0.0.0/udp/4001/quic"]' --json
 fi
+
+echo "[Node] Configuration des adresses API et Swarm..."
+ipfs config Addresses.API /ip4/0.0.0.0/tcp/5001
+ipfs config Addresses.Swarm '["/ip4/0.0.0.0/tcp/4001", "/ip4/0.0.0.0/udp/4001/quic"]' --json
 
 PEER_ADDR="/dns4/$KC__SATELLITE__PEER_HOST/tcp/$KC__SATELLITE__PEER_PORT/p2p/$KC__SATELLITE__PEER_ID"
 echo "[Node] Ajout du satellite au Peering: $PEER_ADDR"
